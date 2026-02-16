@@ -1,0 +1,12 @@
+{
+  "name": "quick-test-appsec",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "dependencies": {
+    "express": "4.17.1",
+    "mysql2": "2.3.0",
+    "lodash": "4.17.20",
+    "jsonwebtoken": "8.5.1"
+  }
+}
