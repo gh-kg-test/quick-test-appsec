@@ -4,9 +4,9 @@
   "private": true,
   "main": "server.js",
   "dependencies": {
-    "express": "4.17.1",
-    "mysql2": "2.3.0",
-    "lodash": "4.17.20",
-    "jsonwebtoken": "8.5.1"
+    "express": "4.21.2",
+    "mysql2": "3.9.8",
+    "lodash": "4.17.21",
+    "jsonwebtoken": "9.0.0"
   }
 }
