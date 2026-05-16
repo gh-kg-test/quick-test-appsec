@@ -1,4 +1,6 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const mysql = require("mysql2");
 const crypto = require("crypto");
 const { DB_PASSWORD } = require("./config");
@@ -29,11 +31,11 @@ app.get("/api/products", (req, res) => {
 });
 
 app.get("/api/reports/:filename", (req, res) => {
-  const filename = req.params.filename;
-  const cmd = "cat /var/reports/" + filename;
-  require("child_process").exec(cmd, (err, stdout) => {
+  const filename = path.basename(req.params.filename);
+  const reportPath = path.join("/var/reports", filename);
+  fs.readFile(reportPath, "utf8", (err, data) => {
     if (err) return res.status(500).json({ error: "Failed" });
-    res.send(stdout);
+    res.send(data);
   });
 });
 
