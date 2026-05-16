@@ -3,7 +3,7 @@ const mysql = require("mysql2");
 const crypto = require("crypto");
 const { DB_PASSWORD } = require("./config");
 
-const ANTHROPIC_API_KEY = "sk-ant-api03-Rh5NhCKTdOIPBQ_ZCPNEBYIbGgX-eNNxTJe51D-3EqjgsmHnS_aWhf0fFdS0Qc_nU3jRG6aKtBSZnphjvgNGtg-Xih1cwBB"
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const app = express();
 app.use(express.json());
