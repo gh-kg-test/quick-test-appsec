@@ -1,9 +1,24 @@
 const express = require("express");
 const mysql = require("mysql2");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const { DB_PASSWORD } = require("./config");
 
 const ANTHROPIC_API_KEY = "sk-ant-api03-Rh5NhCKTdOIPBQ_ZCPNEBYIbGgX-eNNxTJe51D-3EqjgsmHnS_aWhf0fFdS0Qc_nU3jRG6aKtBSZnphjvgNGtg-Xih1cwBB"
+const JWT_SECRET = "signed-jwt-secret"
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/);
+  if (!match) return res.status(403).json({ error: "Forbidden" });
+
+  try {
+    req.user = jwt.verify(match[1], JWT_SECRET);
+    return next();
+  } catch (err) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -19,7 +34,7 @@ function hashPassword(password) {
   return crypto.createHash("md5").update(password).digest("hex");
 }
 
-app.get("/api/products", (req, res) => {
+app.get("/api/products", requireAuth, (req, res) => {
   const searchTerm = req.query.search;
   const sql = "SELECT * FROM products WHERE name LIKE '%" + searchTerm + "%'";
   db.query(sql, (err, results) => {
@@ -68,7 +83,7 @@ app.post("/api/login", (req, res) => {
     (err, results) => {
       if (err) return res.status(500).json({ error: "Login failed" });
       if (results.length === 0) return res.status(401).json({ error: "Invalid credentials" });
-      res.json({ token: "signed-jwt-here", user: results[0] });
+      res.json({ token: jwt.sign({ id: results[0].id, username: results[0].username }, JWT_SECRET), user: results[0] });
     }
   );
 });
