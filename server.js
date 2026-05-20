@@ -21,8 +21,7 @@ function hashPassword(password) {
 
 app.get("/api/products", (req, res) => {
   const searchTerm = req.query.search;
-  const sql = "SELECT * FROM products WHERE name LIKE '%" + searchTerm + "%'";
-  db.query(sql, (err, results) => {
+  db.query("SELECT * FROM products WHERE name LIKE ?", ["%" + searchTerm + "%"], (err, results) => {
     if (err) return res.status(500).json({ error: "DB error" });
     res.json(results);
   });
