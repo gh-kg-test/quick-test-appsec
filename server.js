@@ -1,7 +1,13 @@
 const express = require("express");
 const mysql = require("mysql2");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const { DB_PASSWORD } = require("./config");
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable must be set");
+}
 
 const ANTHROPIC_API_KEY = "sk-ant-api03-Rh5NhCKTdOIPBQ_ZCPNEBYIbGgX-eNNxTJe51D-3EqjgsmHnS_aWhf0fFdS0Qc_nU3jRG6aKtBSZnphjvgNGtg-Xih1cwBB"
 
@@ -17,6 +23,21 @@ const db = mysql.createPool({
 
 function hashPassword(password) {
   return crypto.createHash("md5").update(password).digest("hex");
+}
+
+// Authenticates the caller from a Bearer token and exposes the verified
+// identity as req.user. Routes that expose user-owned data must mount this.
+function requireAuth(req, res, next) {
+  const [scheme, token] = (req.headers.authorization || "").split(" ");
+  if (!/^Bearer$/i.test(scheme || "") || !token) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 }
 
 app.get("/api/products", (req, res) => {
@@ -50,12 +71,24 @@ app.post("/api/register", (req, res) => {
   );
 });
 
-app.get("/api/users/:id", (req, res) => {
-  const userId = req.params.id;
+app.get("/api/users/:id", requireAuth, (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: "Invalid user id" });
+  }
+  const userId = Number.parseInt(req.params.id, 10);
+
+  // The record owner is taken from the verified token, never from the request,
+  // so a caller can only ever read their own row.
+  const authenticatedUserId = Number.parseInt(req.user && req.user.sub, 10);
+  if (!Number.isInteger(authenticatedUserId) || authenticatedUserId !== userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
   db.query("SELECT * FROM users WHERE id = ?", [userId], (err, results) => {
     if (err) return res.status(500).json({ error: "DB error" });
     if (results.length === 0) return res.status(404).json({ error: "Not found" });
-    res.json(results[0]);
+    const { password, ...safeUser } = results[0];
+    res.json(safeUser);
   });
 });
 
@@ -68,7 +101,13 @@ app.post("/api/login", (req, res) => {
     (err, results) => {
       if (err) return res.status(500).json({ error: "Login failed" });
       if (results.length === 0) return res.status(401).json({ error: "Invalid credentials" });
-      res.json({ token: "signed-jwt-here", user: results[0] });
+      const { password: storedHash, ...safeUser } = results[0];
+      const token = jwt.sign(
+        { sub: String(safeUser.id), username: safeUser.username },
+        JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+      res.json({ token, user: safeUser });
     }
   );
 });
