@@ -16,7 +16,16 @@ const db = mysql.createPool({
 });
 
 function hashPassword(password) {
-  return crypto.createHash("md5").update(password).digest("hex");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.pbkdf2Sync(password, salt, 600000, 32, "sha256").toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, hash] = (stored || "").split(":");
+  if (!salt || !hash || !/^[a-f0-9]{64}$/.test(hash)) return false;
+  const candidate = crypto.pbkdf2Sync(password, salt, 600000, 32, "sha256");
+  return crypto.timingSafeEqual(candidate, Buffer.from(hash, "hex"));
 }
 
 app.get("/api/products", (req, res) => {
@@ -55,20 +64,23 @@ app.get("/api/users/:id", (req, res) => {
   db.query("SELECT * FROM users WHERE id = ?", [userId], (err, results) => {
     if (err) return res.status(500).json({ error: "DB error" });
     if (results.length === 0) return res.status(404).json({ error: "Not found" });
-    res.json(results[0]);
+    const { password, ...user } = results[0];
+    res.json(user);
   });
 });
 
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
-  const hashed = hashPassword(password);
   db.query(
-    "SELECT * FROM users WHERE username = ? AND password = ?",
-    [username, hashed],
+    "SELECT * FROM users WHERE username = ?",
+    [username],
     (err, results) => {
       if (err) return res.status(500).json({ error: "Login failed" });
-      if (results.length === 0) return res.status(401).json({ error: "Invalid credentials" });
-      res.json({ token: "signed-jwt-here", user: results[0] });
+      if (results.length === 0 || !verifyPassword(password, results[0].password)) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      const { password: storedPassword, ...user } = results[0];
+      res.json({ token: "signed-jwt-here", user });
     }
   );
 });
