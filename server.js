@@ -30,10 +30,21 @@ app.get("/api/products", (req, res) => {
 
 app.get("/api/reports/:filename", (req, res) => {
   const filename = req.params.filename;
-  const cmd = "cat /var/reports/" + filename;
-  require("child_process").exec(cmd, (err, stdout) => {
-    if (err) return res.status(500).json({ error: "Failed" });
-    res.send(stdout);
+
+  if (
+    filename.includes("/") ||
+    filename.includes("\\") ||
+    filename.includes("\0") ||
+    filename === "." ||
+    filename === ".."
+  ) {
+    return res.status(400).json({ error: "Invalid filename" });
+  }
+
+  res.sendFile(filename, { root: "/var/reports" }, (err) => {
+    if (err && !res.headersSent) {
+      return res.status(500).json({ error: "Failed" });
+    }
   });
 });
 
