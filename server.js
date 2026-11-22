@@ -20,12 +20,15 @@ function hashPassword(password) {
 }
 
 app.get("/api/products", (req, res) => {
-  const searchTerm = req.query.search;
-  const sql = "SELECT * FROM products WHERE name LIKE '%" + searchTerm + "%'";
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ error: "DB error" });
-    res.json(results);
-  });
+  const searchTerm = typeof req.query.search === "string" ? req.query.search : "";
+  db.query(
+    "SELECT * FROM products WHERE name LIKE ?",
+    [`%${searchTerm}%`],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: "DB error" });
+      res.json(results);
+    }
+  );
 });
 
 app.get("/api/reports/:filename", (req, res) => {
